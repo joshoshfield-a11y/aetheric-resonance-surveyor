@@ -546,7 +546,8 @@ var audio = (function () {
   /* start mic capture -> analyser. Returns Promise<boolean>. */
   function startMic() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      state.mic.error = 'navigator.mediaDevices unavailable';
+      state.mic.error = 'mediaDevices missing — origin "' + location.origin + '" secure=' +
+        window.isSecureContext + ' (needs secure context; APK v5.0.1+ serves https origin)';
       return Promise.resolve(false);
     }
     var c = ensureContext();
@@ -563,7 +564,16 @@ var audio = (function () {
       state.mic.error = null;
       return true;
     }).catch(function (err) {
-      state.mic.error = (err && err.name) ? err.name : 'getUserMedia failed';
+      var name = (err && err.name) ? err.name : 'getUserMedia failed';
+      var hints = {
+        NotAllowedError: 'permission denied — Android Settings > Apps > ARS > Permissions > Microphone, then retry',
+        NotFoundError: 'no microphone device found',
+        NotReadableError: 'mic is busy in another app — close it and retry',
+        SecurityError: 'insecure context blocked mic — update to APK v5.0.1+',
+        OverconstrainedError: 'mic rejected the requested constraints'
+      };
+      state.mic.error = name + ((err && err.message) ? ' (' + err.message + ')' : '') +
+        (hints[name] ? ' — ' + hints[name] : '');
       state.mic.active = false;
       return false;
     });
@@ -1459,7 +1469,8 @@ var monitor = (function () {
     on('btn-mic-start', startCapture);
     on('btn-mic-stop', stopCapture);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      state.mic.error = 'navigator.mediaDevices missing (insecure context or old WebView)';
+      state.mic.error = 'mediaDevices missing at init — origin "' + location.origin +
+        '" secure=' + window.isSecureContext;
       refreshMicUi();
     }
     if (!audio.supported()) {

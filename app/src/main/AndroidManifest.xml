@@ -4,6 +4,7 @@
          (mic spectrum monitor + acoustic beacon RX). Sensor data comes from
          devicemotion/Generic Sensor APIs and needs no manifest permission. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <application
         android:label="@string/app_name"
         android:theme="@android:style/Theme.Material.NoActionBar"
