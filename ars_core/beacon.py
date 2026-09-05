@@ -385,3 +385,39 @@ def decode_reply(samples: np.ndarray, sr: int = DEFAULT_SR) -> list[int]:
         d = [abs(a - lvl) for lvl in REPLY_LEVELS]
         out.append(int(np.argmin(d)))
     return out
+
+
+def decode_reply_checked(
+    samples: np.ndarray,
+    sr: int = DEFAULT_SR,
+    min_snr_db: float = 6.0,
+) -> tuple[Optional[list[int]], float]:
+    """Like :func:`decode_reply`, but with a noise-floor refusal gate.
+
+    The noise floor is estimated from the envelope nulls: the sin^2(pi t)
+    envelope is exactly zero at every integer-second boundary, so 100 ms
+    slices centered on the boundaries sample whatever else is present
+    (room noise, interference). If the loudest node window is less than
+    ``min_snr_db`` above that floor, decoding is refused — classifying
+    silence would fabricate trits.
+
+    Returns ``(trits_or_None, snr_db)``.
+    """
+    x = np.asarray(samples, dtype=np.float64)
+    windows = _node_windows(x, sr)
+    amps = [2.0 * tone_amplitude(w, sr, LATTICE_FREQS[k])
+            for k, w in enumerate(windows)]
+    edge = max(1, int(0.05 * sr))
+    floor_segs = []
+    for b in range(1, len(windows)):
+        c = b * sr
+        seg = x[max(0, c - edge): c + edge]
+        if len(seg):
+            floor_segs.append(float(np.sqrt(np.mean(seg ** 2))))
+    noise = float(np.median(floor_segs)) if floor_segs else 0.0
+    sig = max(amps) if amps else 0.0
+    snr_db = 20.0 * math.log10(max(sig, 1e-12) / max(noise, 1e-12))
+    if snr_db < min_snr_db:
+        return None, snr_db
+    out = [int(np.argmin([abs(a - lvl) for lvl in REPLY_LEVELS])) for a in amps]
+    return out, snr_db

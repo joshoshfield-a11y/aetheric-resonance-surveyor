@@ -19,7 +19,7 @@ from typing import Optional, Sequence
 import numpy as np
 
 from . import CALIBRATION_DISCLAIMER, __version__
-from .beacon import (DEFAULT_SR, decode_reply, detect_lattice, encode_reply,
+from .beacon import (DEFAULT_SR, decode_reply, decode_reply_checked, detect_lattice, encode_reply,
                      load_wav, save_wav, synthesize_lattice)
 from .channels import ChannelReading, journal as journal_ch
 from .channels import usgs_seismic, noaa_geomag, rng_entropy, audio_spectrum
@@ -133,8 +133,14 @@ def cmd_beacon_reply(args: argparse.Namespace) -> int:
 
 def cmd_beacon_decode(args: argparse.Namespace) -> int:
     samples, sr = load_wav(args.infile)
-    symbols = decode_reply(samples, sr)
-    print("decoded trits:", "".join(map(str, symbols)))
+    symbols, snr_db = decode_reply_checked(samples, sr)
+    if symbols is None:
+        print(f"NO SIGNAL — loudest window only {snr_db:.1f} dB above the "
+              f"envelope-null noise floor (< 6 dB gate). Decode refused: "
+              f"classifying silence would fabricate trits.")
+        return 2
+    print("decoded trits:", "".join(map(str, symbols)),
+          f"(SNR {snr_db:.1f} dB; verify by repetition)")
     return 0
 
 

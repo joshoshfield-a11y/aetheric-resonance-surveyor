@@ -9,8 +9,8 @@ android {
         applicationId "com.upe78.ars"
         minSdk 26
         targetSdk 34
-        versionCode 2          // bump +1 every build so updates install in place
-        versionName "5.0.1"
+        versionCode 3          // bump +1 every build so updates install in place
+        versionName "5.0.2"
     }
     buildTypes {
         release {

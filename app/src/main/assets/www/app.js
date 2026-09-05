@@ -820,9 +820,15 @@ var beacon = (function () {
   }
 
   function rxDisplay(result, amps) {
-    var grouped = result.slice(0, 5) + ' ' + result.slice(5, 10) + ' ' + result.slice(10);
+    var grouped = result
+      ? (result.slice(0, 5) + ' ' + result.slice(5, 10) + ' ' + result.slice(10))
+      : '····· ······ ···';
     setText('rx-result', grouped);
-    setText('rx-amps', amps.map(function (a) { return a.toFixed(3); }).join(' '));
+    /* dB readout: noise floor sits around -90..-60 dB, a real played tone
+       is -40..-10 dB. Raw linear values rounded to 0.000 hid this before. */
+    setText('rx-amps', amps.map(function (a) {
+      return (20 * Math.log10(Math.max(a, 1e-9))).toFixed(0);
+    }).join(' ') + '  (dB)');
   }
 
   function rxListen() {
@@ -853,6 +859,7 @@ var beacon = (function () {
       var winSamples = [];
       var winStart = 0;
       var onsetTimeout = 0;
+      var nfSamples = [];   /* broadband noise-floor history, pre-onset */
 
       function nodePower(freq) {
         analyser.getFloatFrequencyData(bins);
@@ -871,6 +878,8 @@ var beacon = (function () {
           var wide = 0;
           for (var f = 100; f <= 3000; f += 100) wide += nodePower(f);
           var avg = wide / 30;
+          nfSamples.push(avg);
+          if (nfSamples.length > 600) nfSamples.shift();
           if (p140 > avg * 8) {
             onsetHits++;
           } else {
@@ -904,24 +913,62 @@ var beacon = (function () {
           winSamples = [];
           winStart = now;
           if (rx.windowIdx >= 13) {
-            /* normalise and classify each window to nearest reply level */
-            var max = 0;
-            for (i = 0; i < 13; i++) max = Math.max(max, rx.amps[i]);
-            if (max <= 0) max = 1;
-            var result = '';
-            for (i = 0; i < 13; i++) {
-              var norm = (rx.amps[i] / max) * REPLY_LEVELS[2];
-              var best = 0, bd = Infinity;
-              for (var t = 0; t < 3; t++) {
-                var d = Math.abs(norm - REPLY_LEVELS[t]);
-                if (d < bd) { bd = d; best = t; }
-              }
-              result += String(best);
+            /* GATE 1 — noise-floor refusal. The old max-normalisation
+               guaranteed a "2" and turned silence into valid-looking trits.
+               Now: if the loudest window is <6 dB above the pre-onset
+               broadband floor, there is no signal — refuse to decode. */
+            var nf = 0;
+            for (i = 0; i < nfSamples.length; i++) nf += nfSamples[i];
+            nf /= Math.max(1, nfSamples.length);
+            var maxAmp = 0;
+            for (i = 0; i < 13; i++) maxAmp = Math.max(maxAmp, rx.amps[i]);
+            var snrDb = 10 * Math.log10((maxAmp * maxAmp) / Math.max(nf, 1e-12));
+            if (snrDb < 6) {
+              rxDisplay('', rx.amps);
+              journal.add('RX', 'decode refused: ' + snrDb.toFixed(1) +
+                ' dB above noise floor (< 6 dB gate) — silence, not a signal');
+              rxStop('NO SIGNAL — loudest window only ' + snrDb.toFixed(1) +
+                ' dB above noise floor. Decode refused: classifying silence would fabricate trits.',
+                'warn', 'warn');
+              markTab('beacon');
+              return;
             }
+            /* GATE 2 — cluster classification: 1-D k-means (k=3) over the 13
+               window amplitudes; clusters ranked by loudness map to trits
+               0/1/2. Works for any subset of levels (a sender who transmits
+               no 2s is no longer misread) and removes the forced-"2" artifact. */
+            var cents = [maxAmp * REPLY_LEVELS[0] / REPLY_LEVELS[2],
+                         maxAmp * REPLY_LEVELS[1] / REPLY_LEVELS[2], maxAmp];
+            var assign = [-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1];
+            var iter, t2, dd, bd2, best2;
+            for (iter = 0; iter < 25; iter++) {
+              var sums = [0, 0, 0], counts = [0, 0, 0], moved = false;
+              for (i = 0; i < 13; i++) {
+                best2 = 0; bd2 = Infinity;
+                for (t2 = 0; t2 < 3; t2++) {
+                  dd = Math.abs(rx.amps[i] - cents[t2]);
+                  if (dd < bd2) { bd2 = dd; best2 = t2; }
+                }
+                if (assign[i] !== best2) { assign[i] = best2; moved = true; }
+                sums[best2] += rx.amps[i]; counts[best2]++;
+              }
+              for (t2 = 0; t2 < 3; t2++) {
+                if (counts[t2] > 0) cents[t2] = sums[t2] / counts[t2];
+              }
+              if (!moved) break;
+            }
+            var order = [0, 1, 2].sort(function (a, b) { return cents[a] - cents[b]; });
+            var rank = [0, 0, 0];
+            rank[order[0]] = 0; rank[order[1]] = 1; rank[order[2]] = 2;
+            var result = '';
+            for (i = 0; i < 13; i++) result += String(rank[assign[i]]);
             rxDisplay(result, rx.amps);
-            rxStop('DECODE COMPLETE — ' + result + ' · verify by repetition', 'ok', 'on');
+            rxStop('DECODE COMPLETE — ' + result + ' · SNR ' + snrDb.toFixed(1) +
+              ' dB · verify by repetition (same string 2/3 listens = real)',
+              'ok', 'on');
             journal.add('RX', 'decoded reply lattice: ' + result +
-              ' (amps ' + rx.amps.map(function (a) { return a.toFixed(3); }).join(',') + ')');
+              ' (SNR ' + snrDb.toFixed(1) + ' dB; amps dB ' +
+              rx.amps.map(function (a) { return (20 * Math.log10(Math.max(a, 1e-9))).toFixed(0); }).join(',') + ')');
             markTab('beacon');
             return;
           }

@@ -244,3 +244,20 @@ def _run_all():
 
 if __name__ == "__main__":
     sys.exit(_run_all())
+
+
+def test_decode_reply_checked_refuses_silence_and_noise():
+    """The gated decoder must refuse silence/noise, accept real signals."""
+    import numpy as np
+    from ars_core.beacon import (DEFAULT_SR, decode_reply_checked,
+                                 encode_reply)
+    silence = np.zeros(13 * DEFAULT_SR)
+    trits, snr = decode_reply_checked(silence)
+    assert trits is None and snr <= 0.0
+    rng = np.random.default_rng(7)
+    noise = 0.001 * rng.standard_normal(13 * DEFAULT_SR)
+    trits, snr = decode_reply_checked(noise)
+    assert trits is None and snr < 6.0
+    msg = [2, 0, 1, 2, 2, 0, 0, 1, 0, 1, 2, 0, 1]
+    trits, snr = decode_reply_checked(encode_reply(msg))
+    assert trits == msg and snr >= 20.0
