@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ARS — Aetheric Resonance Surveyor v5.0</title>
+<style>
+  /* ============================================================
+     ARS v5.0 — field instrument / oscilloscope aesthetic
+     Palette: deep charcoal #14171a, warm amber #d8a24a,
+              muted teal #4a7d78, soft off-white #e8e4dc
+     ============================================================ */
+  :root {
+    --bg:        #14171a;
+    --bg-panel:  #1a1e22;
+    --bg-inset:  #101315;
+    --line:      #2b3136;
+    --line-soft: #23282c;
+    --amber:     #d8a24a;
+    --amber-dim: #8a6a33;
+    --teal:      #4a7d78;
+    --teal-dim:  #33524f;
+    --text:      #e8e4dc;
+    --text-dim:  #9a958c;
+    --text-faint:#6b6862;
+    --danger:    #c96a52;
+    --ok:        #7da77d;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas,
+            "DejaVu Sans Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-panel);
+  }
+  header h1 {
+    font-family: var(--mono);
+    font-size: 15px; font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+  }
+  header h1 .sub { color: var(--text-dim); font-weight: 400; }
+  .hdr-clock { margin-left: auto; display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap; }
+  .hdr-clock .item { font-family: var(--mono); font-size: 12px; color: var(--text-dim); }
+  .hdr-clock .item b { color: var(--text); font-weight: 500; }
+  .hdr-clock .lbl { color: var(--text-faint); font-size: 10px; letter-spacing: 0.12em; }
+
+  /* ---------- tab bar ---------- */
+  nav#tabs {
+    display: flex; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg-panel);
+    padding: 0 8px;
+  }
+  nav#tabs button {
+    appearance: none; border: none; background: transparent;
+    color: var(--text-dim); font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.14em; padding: 10px 16px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  nav#tabs button:hover { color: var(--text); }
+  nav#tabs button.active {
+    color: var(--amber);
+    border-bottom-color: var(--amber);
+  }
+  nav#tabs button .dot {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--danger); margin-left: 6px; vertical-align: middle;
+    visibility: hidden;
+  }
+  nav#tabs button .dot.on { visibility: visible; }
+
+  /* ---------- layout ---------- */
+  main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+  section.panel { display: none; }
+  section.panel.active { display: block; }
+  .grid { display: grid; gap: 14px; }
+  .grid.two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 14px 16px;
+  }
+  .card h2 {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.18em; color: var(--teal);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .card h2 .right { float: right; color: var(--text-faint); letter-spacing: 0.05em; }
+
+  /* ---------- controls ---------- */
+  button.btn {
+    appearance: none;
+    background: var(--bg-inset);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+    padding: 8px 14px; cursor: pointer;
+  }
+  button.btn:hover { border-color: var(--amber-dim); color: var(--amber); }
+  button.btn:disabled { opacity: 0.4; cursor: default; }
+  button.btn.primary { border-color: var(--amber-dim); color: var(--amber); }
+  button.btn.primary:hover { background: #241d12; }
+  button.btn.danger { border-color: #6b3d31; color: var(--danger); }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+
+  textarea, input[type=text] {
+    width: 100%;
+    background: var(--bg-inset);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--mono); font-size: 12px;
+    padding: 8px;
+    resize: vertical;
+  }
+  textarea:focus, input[type=text]:focus { outline: none; border-color: var(--teal); }
+
+  /* ---------- readouts ---------- */
+  .readout { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .readout .k { color: var(--text-faint); }
+  .readout .v { color: var(--text); }
+  .readout .v.amber { color: var(--amber); }
+  .readout .v.teal  { color: var(--teal); }
+  .big-value {
+    font-family: var(--mono); font-size: 26px; color: var(--amber);
+    letter-spacing: 0.04em;
+  }
+  .status-line {
+    font-family: var(--mono); font-size: 12px; color: var(--text-dim);
+    padding: 6px 0;
+  }
+  .status-line.ok     { color: var(--ok); }
+  .status-line.warn   { color: var(--amber); }
+  .status-line.bad    { color: var(--danger); }
+  .status-line .led {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--line); margin-right: 7px; vertical-align: middle;
+  }
+  .status-line .led.on   { background: var(--ok); }
+  .status-line .led.warn { background: var(--amber); }
+  .status-line .led.bad  { background: var(--danger); }
+
+  canvas.scope {
+    display: block; width: 100%;
+    background: var(--bg-inset);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+  }
+
+  /* meter bar */
+  .meter {
+    position: relative; height: 14px;
+    background: var(--bg-inset); border: 1px solid var(--line-soft);
+    border-radius: 2px; overflow: hidden; margin: 6px 0;
+  }
+  .meter .fill {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+    background: var(--teal);
+    transition: width 120ms linear;
+  }
+  .meter .fill.hot { background: var(--amber); }
+  .meter .thresh {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: var(--amber); opacity: 0.8;
+  }
+
+  /* beacon node indicators */
+  .node-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .node-cell {
+    flex: 0 0 auto; width: 44px; text-align: center;
+    border: 1px solid var(--line); border-radius: 3px;
+    background: var(--bg-inset);
+    padding: 5px 2px;
+    font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+    user-select: none;
+  }
+  .node-cell .f { display: block; font-size: 11px; color: var(--text); }
+  .node-cell.lit { border-color: var(--amber); background: #241d12; }
+  .node-cell.lit .f { color: var(--amber); }
+
+  /* trit composer */
+  .trit-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .trit-cell {
+    width: 44px; height: 40px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 3px;
+    background: var(--bg-inset); color: var(--text);
+    font-family: var(--mono); font-size: 16px;
+    text-align: center; line-height: 38px;
+    user-select: none;
+  }
+  .trit-cell.t1 { border-color: var(--teal); color: var(--teal); }
+  .trit-cell.t2 { border-color: var(--amber); color: var(--amber); background: #241d12; }
+  .trit-cell:hover { border-color: var(--text-dim); }
+
+  /* lists */
+  ul.event-list {
+    list-style: none; max-height: 220px; overflow-y: auto;
+    font-family: var(--mono); font-size: 11px;
+  }
+  ul.event-list li {
+    padding: 5px 8px; border-bottom: 1px solid var(--line-soft);
+    color: var(--text-dim); white-space: pre-wrap; word-break: break-word;
+  }
+  ul.event-list li b { color: var(--amber); font-weight: 500; }
+  ul.event-list li .tag {
+    display: inline-block; padding: 0 6px; margin-right: 6px;
+    border: 1px solid var(--line); border-radius: 2px;
+    font-size: 10px; color: var(--teal); letter-spacing: 0.1em;
+  }
+  ul.event-list li.alert .tag { color: var(--danger); border-color: #6b3d31; }
+
+  /* tiers checklist */
+  .tier-group { margin-bottom: 16px; }
+  .tier-group h3 {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    color: var(--amber); margin-bottom: 8px;
+  }
+  .tier-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 7px 8px; border: 1px solid var(--line-soft); border-radius: 3px;
+    margin-bottom: 6px; background: var(--bg-inset);
+  }
+  .tier-item input[type=checkbox] {
+    appearance: none; width: 16px; height: 16px; flex: 0 0 16px;
+    border: 1px solid var(--line); border-radius: 2px;
+    background: var(--bg-panel); cursor: pointer; margin-top: 2px;
+    position: relative;
+  }
+  .tier-item input[type=checkbox]:checked { border-color: var(--amber); }
+  .tier-item input[type=checkbox]:checked::after {
+    content: "\2713"; position: absolute; inset: 0;
+    color: var(--amber); font-size: 12px; text-align: center; line-height: 15px;
+  }
+  .tier-item .desc { font-size: 13px; color: var(--text); }
+  .tier-item .desc small { display: block; color: var(--text-faint); font-family: var(--mono); font-size: 10px; }
+  .tier-item .auto {
+    margin-left: auto; font-family: var(--mono); font-size: 10px;
+    color: var(--teal); letter-spacing: 0.1em; white-space: nowrap;
+    padding-top: 3px;
+  }
+  .banner {
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 10px 14px; font-family: var(--mono); font-size: 13px;
+    letter-spacing: 0.06em; margin-bottom: 14px;
+    background: var(--bg-inset); color: var(--text-dim);
+  }
+  .banner.l1 { border-color: var(--teal);   color: var(--teal); }
+  .banner.l2 { border-color: var(--amber);  color: var(--amber); }
+  .banner.l3 { border-color: var(--danger); color: var(--danger); }
+
+  .note {
+    font-size: 11px; color: var(--text-faint);
+    border-left: 2px solid var(--line); padding: 4px 10px; margin: 8px 0;
+  }
+  .note b { color: var(--text-dim); font-weight: 500; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; font-family: var(--mono); font-size: 12px; }
+  .kv .k { color: var(--text-faint); }
+  .kv .v { color: var(--text); }
+
+  /* ---------- footer ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    margin-top: 24px;
+    padding: 12px 16px 18px;
+    font-size: 11px; color: var(--text-faint);
+    text-align: center;
+    background: var(--bg-panel);
+  }
+  footer .foot-inner { max-width: 1100px; margin: 0 auto; }
+
+  @media (max-width: 640px) {
+    main { padding: 10px; }
+    .node-cell, .trit-cell { width: 38px; }
+    .big-value { font-size: 21px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ARS <span class="sub">— Aetheric Resonance Surveyor v5.0</span></h1>
+  <div class="hdr-clock">
+    <span class="item"><span class="lbl">UTC </span><b id="hdr-utc">--:--:--</b></span>
+    <span class="item"><span class="lbl">UPTIME </span><b id="hdr-uptime">00:00:00</b></span>
+    <button class="btn" id="btn-export-all" type="button">EXPORT ALL</button>
+  </div>
+</header>
+
+<nav id="tabs" role="tablist">
+  <button type="button" data-tab="monitor" class="active">MONITOR<span class="dot" id="dot-monitor"></span></button>
+  <button type="button" data-tab="beacon">BEACON<span class="dot" id="dot-beacon"></span></button>
+  <button type="button" data-tab="sensors">SENSORS<span class="dot" id="dot-sensors"></span></button>
+  <button type="button" data-tab="rng">RNG<span class="dot" id="dot-rng"></span></button>
+  <button type="button" data-tab="journal">JOURNAL<span class="dot" id="dot-journal"></span></button>
+  <button type="button" data-tab="tiers">TIERS<span class="dot" id="dot-tiers"></span></button>
+</nav>
+
+<main>
+
+  <!-- ============================ MONITOR ============================ -->
+  <section class="panel active" id="panel-monitor">
+    <div class="grid">
+      <div class="card">
+        <h2>Mic Capture <span class="right" id="mon-samplerate">SR —</span></h2>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-mic-start" type="button">START CAPTURE</button>
+          <button class="btn danger" id="btn-mic-stop" type="button" disabled>STOP</button>
+        </div>
+        <div class="status-line" id="mon-mic-status"><span class="led"></span>MIC IDLE — capture not started</div>
+        <div class="readout" style="margin-top:6px;">
+          <span class="k">analyser fftSize</span> <span class="v">8192</span> &nbsp;
+          <span class="k">freq resolution</span> <span class="v" id="mon-binhz">—</span> &nbsp;
+          <span class="k">focus</span> <span class="v">0–3000 Hz</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Spectrum — 0–3000 Hz (log magnitude, scrolling)</h2>
+        <canvas class="scope" id="cv-spectrum" width="960" height="300"></canvas>
+      </div>
+
+      <div class="card">
+        <h2>Waveform — time domain</h2>
+        <canvas class="scope" id="cv-wave" width="960" height="160"></canvas>
+      </div>
+
+      <div class="grid two">
+        <div class="card">
+          <h2>Lattice Detector — 13-node correlation</h2>
+          <div class="readout">
+            <span class="k">Pearson r</span>
+            <span class="v amber" id="mon-corr-val">—</span>
+            <span class="k"> threshold 0.80 · sustain 3 s · 13 s max-hold window</span>
+          </div>
+          <div class="meter">
+            <div class="fill" id="mon-corr-fill"></div>
+            <div class="thresh" style="left:80%"></div>
+          </div>
+          <div class="status-line" id="mon-lattice-status"><span class="led"></span>NO CARRIER — awaiting correlation &gt; 0.80</div>
+          <canvas class="scope" id="cv-nodes" width="640" height="180" style="margin-top:8px;"></canvas>
+        </div>
+
+        <div class="card">
+          <h2>Spike Watch — null frequencies (Tier-1)</h2>
+          <div class="readout"><span class="k">nulls</span> <span class="v">175 · 280 · 420 · 630 · 840 Hz</span>
+            &nbsp;<span class="k">criterion</span> <span class="v">&gt;6 dB over rolling median</span></div>
+          <div class="status-line" id="mon-spike-status"><span class="led"></span>WATCHING — no spikes logged</div>
+          <ul class="event-list" id="mon-spike-list"></ul>
+        </div>
+
+        <div class="card">
+          <h2>13 Hz Coherent Tone Watch (Tier-2)</h2>
+          <div class="readout">
+            <span class="k">window</span> <span class="v">12 s</span> &nbsp;
+            <span class="k">est. drift</span> <span class="v" id="mon-13hz-drift">—</span> &nbsp;
+            <span class="k">coherent for</span> <span class="v" id="mon-13hz-time">—</span>
+          </div>
+          <div class="status-line" id="mon-13hz-status"><span class="led"></span>IDLE — start capture to track the 13 Hz region</div>
+          <div class="note"><b>Tier-2 criterion:</b> coherent tone near 13 Hz with &lt;0.1 Hz drift sustained &gt;10 s.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ BEACON ============================ -->
+  <section class="panel" id="panel-beacon">
+    <div class="grid two">
+      <div class="card">
+        <h2>TX — OMEGA Beacon</h2>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-tx" type="button">▶ TRANSMIT BEACON</button>
+          <button class="btn danger" id="btn-tx-stop" type="button" disabled>ABORT</button>
+          <button class="btn" id="btn-tx-wav" type="button">SAVE WAV</button>
+        </div>
+        <div class="node-strip" id="tx-nodes"></div>
+        <div class="status-line" id="tx-status"><span class="led"></span>READY — 13 × 1.000 s tones, sin² envelope</div>
+        <div id="wav-out" style="display:none; margin-top:10px;">
+          <div class="btn-row">
+            <a id="wav-link" class="btn" download="omega_beacon.wav" href="#">DOWNLOAD WAV</a>
+            <button class="btn" id="btn-wav-copy" type="button">COPY BASE64</button>
+          </div>
+          <div class="readout"><span class="k">wav</span> <span class="v" id="wav-meta">—</span></div>
+          <textarea id="wav-b64" rows="4" readonly
+            placeholder="base64 PCM payload (fallback for WebViews where downloads do not fire)"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Signal Info — lattice specification</h2>
+        <div class="kv" id="beacon-spec"></div>
+      </div>
+
+      <div class="card">
+        <h2>REPLY Composer — 13-trit message</h2>
+        <div class="readout"><span class="k">click a cell to cycle</span> <span class="v">0 → 1 → 2</span>
+          &nbsp;<span class="k">amplitude map</span> <span class="v">0→0.15 · 1→0.50 · 2→0.85</span></div>
+        <div class="trit-strip" id="reply-trits"></div>
+        <div class="readout" style="margin-bottom:6px;"><span class="k">message</span>
+          <span class="v amber" id="reply-string">0000000000000</span></div>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-reply-play" type="button">▶ PLAY REPLY</button>
+          <button class="btn" id="btn-reply-wav" type="button">SAVE REPLY WAV</button>
+          <button class="btn" id="btn-reply-random" type="button">RANDOMIZE</button>
+          <button class="btn" id="btn-reply-clear" type="button">CLEAR</button>
+        </div>
+        <div class="status-line" id="reply-status"><span class="led"></span>IDLE</div>
+      </div>
+
+      <div class="card">
+        <h2>RX — Listen for Reply</h2>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-rx" type="button">◉ LISTEN FOR REPLY</button>
+          <button class="btn danger" id="btn-rx-stop" type="button" disabled>CANCEL</button>
+        </div>
+        <div class="status-line" id="rx-status"><span class="led"></span>IDLE — press listen, then start the remote beacon</div>
+        <div class="readout" style="margin-top:8px;">
+          <span class="k">decoded trits</span>
+          <span class="v amber" id="rx-result" style="font-size:18px; letter-spacing:0.2em;">————— ————— ———</span>
+        </div>
+        <div class="readout"><span class="k">per-window amplitudes</span>
+          <span class="v" id="rx-amps" style="word-break:break-all;">—</span></div>
+        <div class="note"><b>Honesty note:</b> acoustic decode is environment-sensitive; verify by repetition.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ SENSORS ============================ -->
+  <section class="panel" id="panel-sensors">
+    <div class="grid two">
+      <div class="card">
+        <h2>Magnetometer <span class="right" id="sen-mag-src">src —</span></h2>
+        <div class="readout">
+          <span class="k">x</span> <span class="v" id="sen-mag-x">—</span>
+          <span class="k">y</span> <span class="v" id="sen-mag-y">—</span>
+          <span class="k">z</span> <span class="v" id="sen-mag-z">—</span>
+          <span class="k">|B|</span> <span class="v amber" id="sen-mag-mag">—</span> <span class="k">µT</span>
+        </div>
+        <canvas class="scope" id="cv-mag" width="640" height="120" style="margin-top:8px;"></canvas>
+        <div class="status-line" id="sen-mag-status"><span class="led"></span>CHECKING…</div>
+        <div class="readout"><span class="k">jerk |dB/dt|</span> <span class="v" id="sen-mag-jerk">—</span>
+          <span class="k">µT/s · flag &gt;20 sustained</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Accelerometer <span class="right" id="sen-acc-src">src —</span></h2>
+        <div class="readout">
+          <span class="k">x</span> <span class="v" id="sen-acc-x">—</span>
+          <span class="k">y</span> <span class="v" id="sen-acc-y">—</span>
+          <span class="k">z</span> <span class="v" id="sen-acc-z">—</span> <span class="k">m/s²</span>
+        </div>
+        <canvas class="scope" id="cv-acc" width="640" height="120" style="margin-top:8px;"></canvas>
+        <div class="status-line" id="sen-acc-status"><span class="led"></span>CHECKING…</div>
+        <div class="readout"><span class="k">vibration est. (zero-cross)</span>
+          <span class="v" id="sen-vib">—</span> <span class="k">Hz · watch 70 / 140 Hz (Tier-3)</span></div>
+        <div class="status-line" id="sen-vib-status"><span class="led"></span>VIBRATION WATCH IDLE</div>
+      </div>
+
+      <div class="card">
+        <h2>Gyroscope <span class="right" id="sen-gyro-src">src —</span></h2>
+        <div class="readout">
+          <span class="k">α</span> <span class="v" id="sen-gyro-x">—</span>
+          <span class="k">β</span> <span class="v" id="sen-gyro-y">—</span>
+          <span class="k">γ</span> <span class="v" id="sen-gyro-z">—</span> <span class="k">rad/s</span>
+        </div>
+        <canvas class="scope" id="cv-gyro" width="640" height="120" style="margin-top:8px;"></canvas>
+        <div class="status-line" id="sen-gyro-status"><span class="led"></span>CHECKING…</div>
+      </div>
+
+      <div class="card">
+        <h2>Ambient Light</h2>
+        <div class="big-value" id="sen-lux">—</div>
+        <div class="readout"><span class="k">illuminance, lux</span></div>
+        <canvas class="scope" id="cv-lux" width="640" height="120" style="margin-top:8px;"></canvas>
+        <div class="status-line" id="sen-lux-status"><span class="led"></span>CHECKING…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ RNG ============================ -->
+  <section class="panel" id="panel-rng">
+    <div class="grid two">
+      <div class="card">
+        <h2>Entropy Stream — crypto.getRandomValues</h2>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-rng-start" type="button">START STREAM</button>
+          <button class="btn danger" id="btn-rng-stop" type="button" disabled>STOP</button>
+        </div>
+        <div class="readout">
+          <span class="k">samples of</span> <span class="v">256 B</span> &nbsp;
+          <span class="k">collected</span> <span class="v" id="rng-count">0</span> &nbsp;
+          <span class="k">rate</span> <span class="v">2 /s</span>
+        </div>
+        <div class="status-line" id="rng-status"><span class="led"></span>IDLE</div>
+      </div>
+
+      <div class="card">
+        <h2>Chi-Square Uniformity (256 bins)</h2>
+        <div class="big-value" id="rng-p">p = —</div>
+        <div class="meter">
+          <div class="fill" id="rng-p-fill"></div>
+          <div class="thresh" style="left:0.1%"></div>
+        </div>
+        <div class="readout">
+          <span class="k">χ²</span> <span class="v" id="rng-chi">—</span> &nbsp;
+          <span class="k">df</span> <span class="v">255</span> &nbsp;
+          <span class="k">runs-test z</span> <span class="v" id="rng-runs">—</span>
+        </div>
+        <div class="status-line" id="rng-flag"><span class="led"></span>NO FLAG — p ≥ 0.001</div>
+        <div class="note"><b>Honesty note:</b> a low p-value is a screening trigger, not evidence of external influence.</div>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>p-value History — strip chart</h2>
+        <canvas class="scope" id="cv-rng" width="960" height="140"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ JOURNAL ============================ -->
+  <section class="panel" id="panel-journal">
+    <div class="grid two">
+      <div class="card">
+        <h2>New Entry — manual note</h2>
+        <textarea id="jr-note-text" rows="3" placeholder="field note…"></textarea>
+        <div class="btn-row">
+          <button class="btn primary" id="btn-jr-note" type="button">APPEND NOTE</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Dream / Prediction — pre-commitment</h2>
+        <textarea id="jr-pred-text" rows="3" placeholder="describe the dream or prediction…"></textarea>
+        <div class="btn-row">
+          <button class="btn" id="btn-jr-hash" type="button">1 · COMPUTE HASH</button>
+          <button class="btn primary" id="btn-jr-commit" type="button" disabled>2 · COMMIT TO JOURNAL</button>
+        </div>
+        <div class="readout" style="word-break:break-all;">
+          <span class="k">SHA-256</span> <span class="v amber" id="jr-pred-hash">— (computed before saving; copy it to an external timestamped medium)</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btn-jr-hash-copy" type="button" disabled>COPY HASH</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Chain Integrity</h2>
+        <div class="readout"><span class="k">scheme</span>
+          <span class="v">hash = SHA-256(prevHash ‖ timestamp ‖ content)</span></div>
+        <div class="btn-row">
+          <button class="btn" id="btn-jr-verify" type="button">VERIFY CHAIN</button>
+        </div>
+        <div class="status-line" id="jr-verify-status"><span class="led"></span>NOT VERIFIED THIS SESSION</div>
+      </div>
+
+      <div class="card">
+        <h2>Export</h2>
+        <div class="btn-row">
+          <button class="btn" id="btn-jr-export" type="button">RENDER JSON</button>
+          <button class="btn" id="btn-jr-copy" type="button">COPY</button>
+          <button class="btn danger" id="btn-jr-clear" type="button">ERASE JOURNAL</button>
+        </div>
+        <textarea id="jr-export" rows="6" readonly placeholder="journal JSON appears here"></textarea>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>Event Log <span class="right" id="jr-count">0 entries</span></h2>
+        <ul class="event-list" id="jr-list" style="max-height:340px;"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TIERS ============================ -->
+  <section class="panel" id="panel-tiers">
+    <div class="banner" id="tier-banner">COMPOSITE STATUS: NO TIER CRITERIA MET</div>
+    <div id="tier-list"></div>
+    <div class="note">
+      Checkboxes may be set manually; items marked <b>AUTO</b> are also ticked by flags raised
+      in MONITOR / SENSORS / RNG. Auto-ticks are events — clearing them here does not erase the journal record.
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="foot-inner">
+    ARS flags statistical anomalies only. It cannot establish origin, intent, or non-human
+    intelligence. Collect baselines; replicate independently before interpreting.
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

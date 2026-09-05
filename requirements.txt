@@ -1,0 +1,5 @@
+# All dependencies are optional-import guarded; the instrument degrades
+# gracefully (stdlib fallbacks) when any of these are missing.
+numpy
+scipy
+requests

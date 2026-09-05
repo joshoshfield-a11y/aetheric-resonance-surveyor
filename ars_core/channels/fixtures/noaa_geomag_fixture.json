@@ -1,0 +1,14 @@
+{
+  "description": "Offline fixture: synthetic but realistic NOAA SWPC planetary K-index 3-hour series (quiet-to-unsettled conditions, Kp well below storm threshold).",
+  "kp_series": [
+    {"time_tag": "2024-01-14 00:00:00.000", "kp": 1.0},
+    {"time_tag": "2024-01-14 03:00:00.000", "kp": 1.33},
+    {"time_tag": "2024-01-14 06:00:00.000", "kp": 0.67},
+    {"time_tag": "2024-01-14 09:00:00.000", "kp": 1.0},
+    {"time_tag": "2024-01-14 12:00:00.000", "kp": 2.0},
+    {"time_tag": "2024-01-14 15:00:00.000", "kp": 1.67},
+    {"time_tag": "2024-01-14 18:00:00.000", "kp": 2.33},
+    {"time_tag": "2024-01-14 21:00:00.000", "kp": 2.0}
+  ],
+  "fixture_generated_utc": "2024-01-15T00:00:00Z"
+}

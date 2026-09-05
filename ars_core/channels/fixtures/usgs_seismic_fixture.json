@@ -1,0 +1,6 @@
+{
+  "description": "Offline fixture: synthetic but realistic USGS fdsnws summary. recent_count = M>=2.5 events in last 24 h; baseline_count = M>=2.5 events in trailing 30 days. Values are typical for global seismicity (roughly 40-60 events/day at this magnitude threshold).",
+  "recent_count": 47,
+  "baseline_count": 1421,
+  "fixture_generated_utc": "2024-01-15T00:00:00Z"
+}
