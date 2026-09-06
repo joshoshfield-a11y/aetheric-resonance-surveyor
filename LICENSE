@@ -1,0 +1,83 @@
+# Aetheric Resonance Surveyor Commercial License
+
+**Version 1.0 — Effective Date: January 1, 2026**
+
+## Copyright Notice
+
+Copyright (c) 2026 Taylor C. Mattheisen. All rights reserved.
+
+## 1. Definitions
+
+- **"Software"** means the Aetheric Resonance Surveyor system, including all source code, documentation, build artifacts, and associated materials in this repository.
+- **"Copyright Holder"** means Taylor C. Mattheisen, the sole owner of all intellectual property rights in the Software.
+- **"Licensee"** means any individual or entity that has entered into a valid commercial license agreement with the Copyright Holder.
+- **"Commercial Use"** means any use of the Software that directly or indirectly generates revenue, supports a commercial enterprise, or is incorporated into a product or service offered for sale, license, or subscription.
+- **"Non-Commercial Use"** means personal study, education, academic research, or hobbyist projects that do not generate revenue.
+
+## 2. Grant of Rights
+
+### 2.1 Non-Commercial Use
+Subject to the terms of this License, the Copyright Holder grants you a limited, non-exclusive, non-transferable, revocable license to use the Software for Non-Commercial Use only, provided that:
+
+- You retain all copyright and license notices in all copies of the Software;
+- You do not redistribute, sublicense, or publicly display the Software or any derivative works;
+- You do not remove or alter any proprietary notices or labels;
+- You provide attribution to "Taylor C. Mattheisen" in any public-facing materials referencing the Software.
+
+### 2.2 Commercial Use
+**Commercial Use of the Software is strictly prohibited without a valid, paid commercial license agreement.** No commercial rights are granted by this License. Any Commercial Use without a signed commercial license constitutes a material breach and infringement of copyright.
+
+## 3. Commercial Licensing
+
+Commercial licenses are available directly from the Copyright Holder. Terms, pricing, and scope are determined at the sole discretion of the Copyright Holder.
+
+To inquire about a commercial license, contact the Copyright Holder using the information in Section 8.
+
+## 4. License Protection & Updates
+
+### 4.1 Grandfathering
+If you have purchased a commercial license prior to any update to this License, your existing license terms remain in full force and effect. License updates apply only to future licensees and do not retroactively alter rights already granted under a paid commercial license.
+
+### 4.2 Reservation of Rights
+The Copyright Holder reserves the right to modify this License for future distributions. No modification shall affect existing paid licensees without their express written consent.
+
+## 5. Restrictions
+
+Without a valid commercial license, you may NOT:
+
+- Use the Software in any Commercial Use;
+- Distribute, sublicense, lease, lend, sell, or otherwise transfer the Software;
+- Modify the Software and distribute or publicly display the modified version;
+- Use the Software to provide software-as-a-service (SaaS), platform-as-a-service (PaaS), or similar hosted offerings;
+- Use the Software in an enterprise, business, or government environment;
+- Decompile, reverse-engineer, or disassemble the Software, except to the extent expressly permitted by applicable law.
+
+## 6. Termination
+
+This License is effective until terminated. Your rights under this License will terminate automatically without notice if you fail to comply with any term. Upon termination, you must cease all use of the Software and destroy all copies in your possession.
+
+## 7. Warranty Disclaimer & Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+## 8. Contact Information
+
+For licensing inquiries, commercial partnerships, or questions about this License:
+
+**Taylor C. Mattheisen**
+- GitHub: https://github.com/joshoshfield-a11y
+- Repository: https://github.com/joshoshfield-a11y/Aetheric Resonance Surveyor
+
+## 9. Governing Law
+
+This License shall be governed by and construed in accordance with the laws of the State of Idaho, United States, without regard to its conflict-of-law provisions. Any dispute arising under this License shall be resolved exclusively in the state or federal courts located in Idaho.
+
+## 10. Entire Agreement
+
+This License constitutes the entire agreement between you and the Copyright Holder concerning the Software and supersedes all prior or contemporaneous agreements, representations, warranties, and understandings.
+
+---
+
+**BY USING, DOWNLOADING, OR ACCESSING THE SOFTWARE, YOU ACKNOWLEDGE THAT YOU HAVE READ, UNDERSTOOD, AND AGREE TO BE BOUND BY THE TERMS OF THIS LICENSE. IF YOU DO NOT AGREE, DO NOT USE THE SOFTWARE.**
