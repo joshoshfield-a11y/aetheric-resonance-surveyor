@@ -94,4 +94,4 @@ in place over the previous build.
 
 ## License
 
-MIT. Instrument, not oracle.
+Licensed under the Aetheric Resonance Surveyor Commercial License v1.0.\n\n- **Personal / non-commercial use**: Free with attribution. See [LICENSE](LICENSE) for full terms.\n- **Commercial use**: Requires a paid license. Contact Taylor C. Mattheisen for inquiries.
