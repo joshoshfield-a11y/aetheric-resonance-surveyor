@@ -26,16 +26,30 @@ hash-chained pre-commitment journal, and can transmit/receive the OMEGA
 
 1. **USGS seismic feed** — event-rate z-score vs 30-day baseline.
 2. **NOAA SWPC geomagnetic** — Kp index, storm and sudden-jump flags.
-3. **Acoustic spectrum** — live FFT, lattice correlation, >6 dB spike watch at
+3. **NOAA SWPC solar X-ray (GOES)** — current flare class from the
+   primary-satellite 0.1–0.8 nm flux plus trailing-24h flare counts by
+   class; flags on an X-class flare or ≥3 M-class flares in 24 h.
+4. **Open-Meteo weather grid** — 8-station global lattice (SF, Reykjavik,
+   Cairo, Singapore, Sydney, Rio, Tokyo, Honolulu); current pressure as a
+   z-score vs each station's trailing-48h hourly series; flags when ≥2
+   stations simultaneously exceed |z| = 3.
+5. **Public radio stream** — samples ~10 s of a public broadcast stream
+   (RadioBrowser directory + stable direct URLs, decoded with ffmpeg) and
+   runs the same >6 dB null-frequency spike screen as the acoustic
+   channel. Offline (no stream reachable) is reported, never fabricated.
+6. **Bitcoin substrate** — mempool.space chain tip, fee rates, mempool
+   backlog, 3-day hash rate; flags on fee-market congestion
+   (≥50 sat/vB fastest fee or >150k tx backlog).
+7. **Acoustic spectrum** — live FFT, lattice correlation, >6 dB spike watch at
    null frequencies (175/280/420/630/840 Hz…), coherent 13.00 Hz tone watch
    (<0.1 Hz drift, >10 s), 40 Hz band power for EEG WAV imports.
-4. **RNG entropy screen** — chi-square + serial correlation on OS/hardware RNG
+8. **RNG entropy screen** — chi-square + serial correlation on OS/hardware RNG
    (p < 0.001 trigger, per project Tier-2 rule).
-5. **Device sensors** (field app) — magnetometer jerk, accelerometer 70/140 Hz
+9. **Device sensors** (field app) — magnetometer jerk, accelerometer 70/140 Hz
    structural-vibration estimate, ambient light.
-6. **Hash-chained journal** — SHA-256 pre-commitment for predictions/dreams/
-   somatic events. Commit the hash *before* the event; validate after. This is
-   the anti-retrofitting falsification tool — use it honestly.
+10. **Hash-chained journal** — SHA-256 pre-commitment for predictions/dreams/
+    somatic events. Commit the hash *before* the event; validate after. This is
+    the anti-retrofitting falsification tool — use it honestly.
 
 ## The beacon
 
@@ -83,9 +97,11 @@ in place over the previous build.
 
 ## Detection tiers (OMEGA-BEACON protocol, encoded in `ars_core/tiers.py`)
 
-- **Tier 1** — single detection flags: >6 dB spike at null freqs; 40 Hz >3σ
-  within 5 min of TX; RNG p<0.001; committed prediction validated;
-  timestamp-ordering anomaly.
+- **Tier 1** — single detection flags: >6 dB spike at null freqs (acoustic
+  or public-radio capture); 40 Hz >3σ within 5 min of TX; RNG p<0.001;
+  USGS 24h quake-rate z > 3; NOAA Kp ≥ 7 (G3+); GOES X-class flare (or ≥3
+  M-class) in 24 h; committed prediction validated; timestamp-ordering
+  anomaly.
 - **Tier 2** — requires ≥2 independent corroborating channels: phase-stable
   harmonic return 280–5740 Hz; coherent 13.00 Hz tone; RNG; verified
   information anomaly.

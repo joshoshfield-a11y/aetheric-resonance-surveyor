@@ -23,6 +23,8 @@ from .beacon import (DEFAULT_SR, decode_reply, decode_reply_checked, detect_latt
                      load_wav, save_wav, synthesize_lattice)
 from .channels import ChannelReading, journal as journal_ch
 from .channels import usgs_seismic, noaa_geomag, rng_entropy, audio_spectrum
+from .channels import noaa_solar, openmeteo_weather, radio_stream
+from .channels import bitcoin_substrate
 from .alpha142 import evaluate
 from .tiers import evaluate_tiers
 
@@ -45,9 +47,33 @@ def _run_channels_once(simulate: bool) -> list[ChannelReading]:
             timestamp_utc=utc_now_iso(), channel="noaa_geomag",
             metrics={"kp_latest": 2.0, "kp_jump": -0.33},
             anomaly_flag=False, notes="simulated", offline=True))
+        readings.append(ChannelReading(
+            timestamp_utc=utc_now_iso(), channel="noaa_solar",
+            metrics={"current_flux_wm2": 1.9e-7, "current_class": "B1.9",
+                     "x_flares_24h": 0, "m_flares_24h": 0,
+                     "max_flare_24h": "C3.1"},
+            anomaly_flag=False, notes="simulated", offline=True))
+        readings.append(ChannelReading(
+            timestamp_utc=utc_now_iso(), channel="openmeteo_weather",
+            metrics={"n_stations": 8, "n_extreme": 0, "max_abs_z": 0.42},
+            anomaly_flag=False, notes="simulated", offline=True))
+        readings.append(ChannelReading(
+            timestamp_utc=utc_now_iso(), channel="bitcoin_substrate",
+            metrics={"tip_height": 0, "fastest_fee_satvb": 1,
+                     "mempool_tx_count": 50000, "hashrate_3d_avg_ehs": 0.0},
+            anomaly_flag=False, notes="simulated", offline=True))
+        readings.append(ChannelReading(
+            timestamp_utc=utc_now_iso(), channel="radio_stream",
+            metrics={"stream_name": "simulated", "spikes": [],
+                     "captured_seconds": 0.0},
+            anomaly_flag=False, notes="simulated", offline=True))
     else:
         readings.append(usgs_seismic.collect())
         readings.append(noaa_geomag.collect())
+        readings.append(noaa_solar.collect())
+        readings.append(openmeteo_weather.collect())
+        readings.append(bitcoin_substrate.collect())
+        readings.append(radio_stream.collect())
     readings.append(rng_entropy.collect(n_bytes=20_000))
     readings.append(audio_spectrum.collect())
     return readings

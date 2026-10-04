@@ -36,13 +36,22 @@ class TierRule:
 TIER_RULES: tuple[TierRule, ...] = (
     # --- Tier 1: single detection flags -----------------------------------
     TierRule("t1_null_spike", 1,
-             "EM/acoustic spike >6 dB at null frequency "
-             "(175/280/420/630/840 Hz ...)", manual=False),
+             "spectral spike >6 dB at null frequency "
+             "(175/280/420/630/840 Hz ...), acoustic or public-radio "
+             "capture", manual=False),
     TierRule("t1_gamma_40hz", 1,
              "40 Hz gamma-band power >3 sigma within 5 min of beacon TX",
              manual=False),
     TierRule("t1_rng_chi2", 1,
              "RNG chi-square uniformity p < 0.001", manual=False),
+    TierRule("t1_quake_rate", 1,
+             "USGS 24h event-rate z-score > 3 vs 30-day baseline",
+             manual=False),
+    TierRule("t1_geomag_storm_major", 1,
+             "NOAA planetary Kp >= 7 (G3+ major storm)", manual=False),
+    TierRule("t1_solar_x", 1,
+             "GOES X-class flare in trailing 24h, or >= 3 M-class",
+             manual=False),
     TierRule("t1_prediction_validated", 1,
              "hash-chain-committed prediction later validated",
              manual=True),
@@ -108,9 +117,37 @@ def _any_metric(readings: Sequence[ChannelReading],
     return any(pred(r) for r in readings)
 
 
-def _check_t1_null_spike(rs: Sequence[ChannelReading]) -> bool:
-    return _any_metric(rs, lambda r: r.channel == "audio_spectrum"
-                       and bool(r.metrics.get("spikes")))
+def _check_t1_null_spike(rs: Sequence[ChannelReading]) -> str:
+    """Return the hitting channel name, or "" on no hit.
+
+    Both the local acoustic channel and the public-radio capture channel
+    run the same >6 dB null-frequency spike screen; either may trip it.
+    """
+    for r in rs:
+        if r.channel in ("audio_spectrum", "radio_stream") and \
+                bool(r.metrics.get("spikes")):
+            return r.channel
+    return ""
+
+
+def _check_t1_quake_rate(rs: Sequence[ChannelReading]) -> bool:
+    return _any_metric(rs, lambda r: r.channel == "usgs_seismic"
+                       and float(r.metrics.get("rate_zscore", 0.0)) > 3.0)
+
+
+def _check_t1_geomag_storm_major(rs: Sequence[ChannelReading]) -> bool:
+    return _any_metric(rs, lambda r: r.channel == "noaa_geomag"
+                       and float(r.metrics.get("kp_latest", 0.0)) >= 7.0)
+
+
+def _check_t1_solar_x(rs: Sequence[ChannelReading]) -> bool:
+    def hit(r: ChannelReading) -> bool:
+        if r.channel != "noaa_solar":
+            return False
+        x24 = int(r.metrics.get("x_flares_24h", 0) or 0)
+        m24 = int(r.metrics.get("m_flares_24h", 0) or 0)
+        return x24 >= 1 or m24 >= 3
+    return _any_metric(rs, hit)
 
 
 def _check_t1_gamma(rs: Sequence[ChannelReading]) -> bool:
@@ -141,10 +178,16 @@ def _check_t3_vibration(rs: Sequence[ChannelReading]) -> bool:
 
 
 # rule_id -> (check function, contributing channel label for corroboration)
-_AUTO_CHECKS: dict[str, tuple[Callable[[Sequence[ChannelReading]], bool], str]] = {
+# A check may return a channel-name string instead of a plain bool; the
+# string then becomes the contributing label (used by t1_null_spike, which
+# can be tripped by either spectral-screen channel).
+_AUTO_CHECKS: dict[str, tuple[Callable[[Sequence[ChannelReading]], bool | str], str]] = {
     "t1_null_spike": (_check_t1_null_spike, "audio_spectrum"),
     "t1_gamma_40hz": (_check_t1_gamma, "audio_spectrum"),
     "t1_rng_chi2": (_rng_p_below, "rng_entropy"),
+    "t1_quake_rate": (_check_t1_quake_rate, "usgs_seismic"),
+    "t1_geomag_storm_major": (_check_t1_geomag_storm_major, "noaa_geomag"),
+    "t1_solar_x": (_check_t1_solar_x, "noaa_solar"),
     "t2_coherent_13hz": (_check_t2_coherent, "audio_spectrum"),
     "t2_rng": (_rng_p_below, "rng_entropy"),
     "t3_vibration": (_check_t3_vibration, "vibration_sensor"),
@@ -164,10 +207,11 @@ def evaluate_tiers(readings: Sequence[ChannelReading],
 
     for rule_id, (check, channel) in _AUTO_CHECKS.items():
         try:
-            if check(readings):
-                hits[rule_id] = channel
+            res = check(readings)
         except Exception:
             continue  # a malformed reading never fabricates a hit
+        if res:
+            hits[rule_id] = res if isinstance(res, str) else channel
 
     # a high-confidence lattice detection corroborates the harmonic-return
     # rule: the lattice carriers (280-2870 Hz) sit inside 280-5740 Hz and the
