@@ -20,7 +20,8 @@ from ars_core.beacon import (DEFAULT_SR, LATTICE_FREQS, N_NODES,
                              synthesize_lattice)
 from ars_core.channels import ChannelReading, journal, noaa_geomag, \
     rng_entropy, usgs_seismic, audio_spectrum, noaa_solar, \
-    openmeteo_weather, radio_stream, bitcoin_substrate
+    openmeteo_weather, radio_stream, bitcoin_substrate, \
+    harmonic_resonance, geometric_resonance
 from ars_core.tiers import evaluate_tiers
 from datetime import datetime, timezone
 
@@ -389,6 +390,131 @@ def test_tiers_new_environmental_rules():
                         rd("noaa_solar", {"x_flares_24h": 0,
                                           "m_flares_24h": 1})])
     assert not v.tier1_hits
+
+
+# --------------------------------------------------------------------------
+# harmonic + geometric resonance channels
+# --------------------------------------------------------------------------
+
+def _synth_harmonic_series(sr=44100, seconds=3.0, f0=110.0):
+    t = np.arange(int(sr * seconds)) / sr
+    x = sum(0.2 * np.sin(2 * np.pi * f0 * k * t) for k in (1, 2, 3, 4))
+    x = x + 0.002 * np.random.default_rng(21).standard_normal(t.shape[0])
+    return x, sr
+
+
+def test_harmonic_synth_series_detected():
+    x, sr = _synth_harmonic_series()
+    a = harmonic_resonance.analyze_harmonicity(x, sr)
+    assert abs(a["fundamental_hz"] - 110.0) < 2.0, a
+    assert a["n_harmonics"] >= 3, a
+    assert a["harmonicity_score"] >= 3 / 7
+
+
+def test_harmonic_noise_not_a_code():
+    sr = 44100
+    x = np.random.default_rng(22).standard_normal(3 * sr)
+    a = harmonic_resonance.analyze_harmonicity(x, sr)
+    assert a["n_harmonics"] < 3, a
+
+
+def test_harmonic_offline_no_fabrication():
+    # the stream resolver lives in radio_stream: null both modules
+    harmonic_resonance.requests = None
+    radio_stream.requests = None
+    try:
+        r = harmonic_resonance.collect(streams=[])
+    finally:
+        import importlib
+        importlib.reload(harmonic_resonance)
+        importlib.reload(radio_stream)
+    assert r.offline
+    assert r.channel == "harmonic_resonance"
+    assert not r.anomaly_flag
+
+
+def test_clark_evans_regular_grid():
+    g = np.linspace(-5, 5, 8)
+    lon, lat = np.meshgrid(g, g)
+    ce = geometric_resonance.clark_evans(lon.ravel(), lat.ravel())
+    assert ce["R"] > 1.5, ce
+    assert ce["z"] > 3.09, ce
+
+
+def test_clark_evans_clustered_not_regular():
+    rng = np.random.default_rng(23)
+    centers = [(-3, -3), (3, 3), (-3, 3), (3, -3), (0, 0)]
+    pts = np.vstack([np.array(c) + 0.05 * rng.standard_normal((20, 2))
+                     for c in centers])
+    ce = geometric_resonance.clark_evans(pts[:, 0], pts[:, 1])
+    assert ce["R"] < 1.0, ce
+    assert ce["z"] < 3.09, ce
+
+
+def test_lomb_scargle_finds_periodicity():
+    # 10 days of events, rate modulated at 24 h
+    rng = np.random.default_rng(24)
+    times = []
+    for h in range(240):
+        n = 4 if (h % 24) < 6 else 0
+        times += list((h + rng.random(n)) * 3600.0)
+    times = np.array(sorted(times))
+    ls = geometric_resonance.lomb_scargle_screen(times, 0.0, 10 * 86400.0)
+    assert ls["available"]
+    assert ls["flag"], ls
+    assert abs(ls["best_period_h"] - 24.0) < 2.0, ls
+
+
+def test_lomb_scargle_quiet_on_uniform():
+    rng = np.random.default_rng(25)
+    times = np.sort(rng.random(300) * 10 * 86400.0)
+    ls = geometric_resonance.lomb_scargle_screen(times, 0.0, 10 * 86400.0)
+    assert ls["available"]
+    assert not ls["flag"], ls
+
+
+def test_geometric_offline_fixture():
+    geometric_resonance.requests = None
+    try:
+        r = geometric_resonance.collect()
+    finally:
+        import importlib
+        importlib.reload(geometric_resonance)
+    assert r.offline
+    assert r.channel == "geometric_resonance"
+    assert r.metrics["n_events"] == 120
+    assert "R" in r.metrics["spatial"]
+    assert "fap" in r.metrics["temporal"] or \
+        "note" in r.metrics["temporal"]
+    # flag must match the sub-screen outcomes, whatever the fixture holds
+    spatial_hit = r.metrics["spatial"].get("z", 0) > 3.09
+    temporal_hit = bool(r.metrics["temporal"].get("flag"))
+    assert r.anomaly_flag == (spatial_hit or temporal_hit)
+
+
+def test_tiers_harmonic_geometric_rules():
+    def rd(ch, metrics):
+        return ChannelReading(timestamp_utc="2024-01-01T00:00:00Z",
+                              channel=ch, metrics=metrics)
+
+    v = evaluate_tiers([rd("harmonic_resonance", {"persistent": True})])
+    assert "t1_harmonic_code" in v.tier1_hits
+    v = evaluate_tiers([rd("harmonic_resonance", {"persistent": False})])
+    assert "t1_harmonic_code" not in v.tier1_hits
+
+    v = evaluate_tiers([rd("geometric_resonance",
+                           {"spatial": {"z": 4.5},
+                            "temporal": {"flag": False}})])
+    assert "t1_geometric_regular" in v.tier1_hits
+    v = evaluate_tiers([rd("geometric_resonance",
+                           {"spatial": {"z": -8.0},
+                            "temporal": {"flag": True,
+                                         "best_period_h": 24.0}})])
+    assert "t1_geometric_regular" in v.tier1_hits
+    v = evaluate_tiers([rd("geometric_resonance",
+                           {"spatial": {"z": -8.0},
+                            "temporal": {"flag": False}})])
+    assert "t1_geometric_regular" not in v.tier1_hits
 
 
 def test_decode_reply_checked_refuses_silence_and_noise():
