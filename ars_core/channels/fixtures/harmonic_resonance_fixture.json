@@ -1,0 +1,3 @@
+{
+  "note": "Offline placeholder. Harmonicity is computed from real captured audio only; when no public stream can be captured the channel reports offline=True instead of inventing a spectrum."
+}

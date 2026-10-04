@@ -24,7 +24,8 @@ from .beacon import (DEFAULT_SR, decode_reply, decode_reply_checked, detect_latt
 from .channels import ChannelReading, journal as journal_ch
 from .channels import usgs_seismic, noaa_geomag, rng_entropy, audio_spectrum
 from .channels import noaa_solar, openmeteo_weather, radio_stream
-from .channels import bitcoin_substrate
+from .channels import bitcoin_substrate, harmonic_resonance
+from .channels import geometric_resonance
 from .alpha142 import evaluate
 from .tiers import evaluate_tiers
 
@@ -67,6 +68,18 @@ def _run_channels_once(simulate: bool) -> list[ChannelReading]:
             metrics={"stream_name": "simulated", "spikes": [],
                      "captured_seconds": 0.0},
             anomaly_flag=False, notes="simulated", offline=True))
+        readings.append(ChannelReading(
+            timestamp_utc=utc_now_iso(), channel="harmonic_resonance",
+            metrics={"persistent": False,
+                     "capture_1": {"fundamental_hz": 110.0, "n_harmonics": 2},
+                     "capture_2": {"fundamental_hz": 110.0, "n_harmonics": 2}},
+            anomaly_flag=False, notes="simulated", offline=True))
+        readings.append(ChannelReading(
+            timestamp_utc=utc_now_iso(), channel="geometric_resonance",
+            metrics={"n_events": 120,
+                     "spatial": {"R": 0.62, "z": -8.1},
+                     "temporal": {"fap": 0.4, "flag": False}},
+            anomaly_flag=False, notes="simulated", offline=True))
     else:
         readings.append(usgs_seismic.collect())
         readings.append(noaa_geomag.collect())
@@ -74,6 +87,8 @@ def _run_channels_once(simulate: bool) -> list[ChannelReading]:
         readings.append(openmeteo_weather.collect())
         readings.append(bitcoin_substrate.collect())
         readings.append(radio_stream.collect())
+        readings.append(harmonic_resonance.collect())
+        readings.append(geometric_resonance.collect())
     readings.append(rng_entropy.collect(n_bytes=20_000))
     readings.append(audio_spectrum.collect())
     return readings

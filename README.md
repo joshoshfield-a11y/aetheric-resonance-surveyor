@@ -50,6 +50,17 @@ hash-chained pre-commitment journal, and can transmit/receive the OMEGA
 10. **Hash-chained journal** — SHA-256 pre-commitment for predictions/dreams/
     somatic events. Commit the hash *before* the event; validate after. This is
     the anti-retrofitting falsification tool — use it honestly.
+11. **Harmonic resonance (unknown-code listener)** — two public-broadcast
+    captures ~25 s apart; spectral peaks tested for small-integer harmonic
+    series on a common fundamental. Flags only on persistence: the same
+    fundamental (±2%) with ≥3 harmonics in *both* captures. A passing
+    musical phrase will not repeat its exact harmonic skeleton; a
+    continuous carrier will.
+12. **Geometric resonance (structure listener)** — the arrangement of
+    occurrence: Clark-Evans spatial regularity of M≥2.5 epicenters over
+    30 days (flags lattice-like regularity, the direction nature does not
+    produce — quakes naturally cluster) plus Lomb-Scargle periodicity of
+    the hourly event rate (2 h–15 d).
 
 ## The beacon
 
@@ -98,7 +109,9 @@ in place over the previous build.
 ## Detection tiers (OMEGA-BEACON protocol, encoded in `ars_core/tiers.py`)
 
 - **Tier 1** — single detection flags: >6 dB spike at null freqs (acoustic
-  or public-radio capture); 40 Hz >3σ within 5 min of TX; RNG p<0.001;
+  or public-radio capture); persistent unfamiliar harmonic code;
+  geometrically regular quake arrangement or significant event-rate
+  periodicity; 40 Hz >3σ within 5 min of TX; RNG p<0.001;
   USGS 24h quake-rate z > 3; NOAA Kp ≥ 7 (G3+); GOES X-class flare (or ≥3
   M-class) in 24 h; committed prediction validated; timestamp-ordering
   anomaly.

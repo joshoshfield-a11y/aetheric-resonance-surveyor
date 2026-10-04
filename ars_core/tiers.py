@@ -52,6 +52,14 @@ TIER_RULES: tuple[TierRule, ...] = (
     TierRule("t1_solar_x", 1,
              "GOES X-class flare in trailing 24h, or >= 3 M-class",
              manual=False),
+    TierRule("t1_harmonic_code", 1,
+             "persistent unfamiliar harmonic code in two consecutive "
+             "public-broadcast captures (same fundamental +/-2%, "
+             ">=3 harmonics each)", manual=False),
+    TierRule("t1_geometric_regular", 1,
+             "earthquake epicenters significantly regular (Clark-Evans "
+             "p<0.001) or significant event-rate periodicity (FAP<0.001)",
+             manual=False),
     TierRule("t1_prediction_validated", 1,
              "hash-chain-committed prediction later validated",
              manual=True),
@@ -150,6 +158,22 @@ def _check_t1_solar_x(rs: Sequence[ChannelReading]) -> bool:
     return _any_metric(rs, hit)
 
 
+def _check_t1_harmonic_code(rs: Sequence[ChannelReading]) -> bool:
+    return _any_metric(rs, lambda r: r.channel == "harmonic_resonance"
+                       and bool(r.metrics.get("persistent")))
+
+
+def _check_t1_geometric_regular(rs: Sequence[ChannelReading]) -> bool:
+    def hit(r: ChannelReading) -> bool:
+        if r.channel != "geometric_resonance":
+            return False
+        spatial = r.metrics.get("spatial", {}) or {}
+        temporal = r.metrics.get("temporal", {}) or {}
+        return float(spatial.get("z", 0.0)) > 3.09 or \
+            bool(temporal.get("flag"))
+    return _any_metric(rs, hit)
+
+
 def _check_t1_gamma(rs: Sequence[ChannelReading]) -> bool:
     # requires a pre-registered baseline sigma in the reading's metrics
     return _any_metric(rs, lambda r: r.channel == "audio_spectrum"
@@ -188,6 +212,9 @@ _AUTO_CHECKS: dict[str, tuple[Callable[[Sequence[ChannelReading]], bool | str], 
     "t1_quake_rate": (_check_t1_quake_rate, "usgs_seismic"),
     "t1_geomag_storm_major": (_check_t1_geomag_storm_major, "noaa_geomag"),
     "t1_solar_x": (_check_t1_solar_x, "noaa_solar"),
+    "t1_harmonic_code": (_check_t1_harmonic_code, "harmonic_resonance"),
+    "t1_geometric_regular": (_check_t1_geometric_regular,
+                             "geometric_resonance"),
     "t2_coherent_13hz": (_check_t2_coherent, "audio_spectrum"),
     "t2_rng": (_rng_p_below, "rng_entropy"),
     "t3_vibration": (_check_t3_vibration, "vibration_sensor"),
