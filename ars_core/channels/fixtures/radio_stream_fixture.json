@@ -1,0 +1,5 @@
+{
+  "note": "Offline placeholder. No spectrum is fabricated when no public stream can be captured: the channel reports offline=True with the attempted sources and errors instead of inventing audio.",
+  "null_freqs_hz": [175.0, 280.0, 420.0, 630.0, 840.0],
+  "spike_threshold_db": 6.0
+}

@@ -19,8 +19,10 @@ from ars_core.beacon import (DEFAULT_SR, LATTICE_FREQS, N_NODES,
                              detect_lattice, encode_reply, goertzel_power,
                              synthesize_lattice)
 from ars_core.channels import ChannelReading, journal, noaa_geomag, \
-    rng_entropy, usgs_seismic, audio_spectrum
+    rng_entropy, usgs_seismic, audio_spectrum, noaa_solar, \
+    openmeteo_weather, radio_stream, bitcoin_substrate
 from ars_core.tiers import evaluate_tiers
+from datetime import datetime, timezone
 
 
 # --------------------------------------------------------------------------
@@ -224,7 +226,190 @@ def test_mic_capture_informative_error():
 
 
 # --------------------------------------------------------------------------
-# plain-python runner
+# new channels: solar X-ray, weather grid, public radio, bitcoin substrate
+# --------------------------------------------------------------------------
+
+def test_noaa_solar_offline_fixture():
+    noaa_solar.requests = None
+    try:
+        r = noaa_solar.collect()
+    finally:
+        import importlib
+        importlib.reload(noaa_solar)
+    assert r.offline
+    assert r.channel == "noaa_solar"
+    assert r.metrics["current_class"].startswith("B")
+    assert r.metrics["x_flares_24h"] == 0
+    assert not r.anomaly_flag  # recorded fixture is solar-quiet
+
+
+def test_noaa_solar_class_of_flux():
+    assert noaa_solar.class_of_flux(2.4e-4) == "X2.4"
+    assert noaa_solar.class_of_flux(5.0e-6) == "C5.0"
+    assert noaa_solar.class_of_flux(1.94e-7) == "B1.9"
+    assert noaa_solar.class_of_flux(1.2e-8) == "A1.2"
+
+
+def test_noaa_solar_flag_logic():
+    now = datetime(2026, 10, 4, 5, 0, tzinfo=timezone.utc)
+    xray = [{"time_tag": "2026-10-04T05:00:00Z", "flux": 1.2e-4,
+             "satellite": 18}]
+
+    def flare(mc, mt="2026-10-04T04:00:00Z"):
+        return {"max_time": mt, "max_class": mc, "max_xrlong": 1.2e-4}
+
+    out = noaa_solar._analyze([flare("X1.2")], xray, now)
+    assert out["anomaly_flag"] and out["metrics"]["x_flares_24h"] == 1
+    out = noaa_solar._analyze([flare("M1.0"), flare("M2.1"), flare("M5.0")],
+                              xray, now)
+    assert out["anomaly_flag"] and out["metrics"]["m_flares_24h"] == 3
+    out = noaa_solar._analyze([flare("C2.0"), flare("M1.0")], xray, now)
+    assert not out["anomaly_flag"]
+    # stale flares (outside the 24h window) must not count
+    out = noaa_solar._analyze([flare("X9.9", "2026-09-20T04:00:00Z")],
+                              xray, now)
+    assert not out["anomaly_flag"]
+    assert out["metrics"]["x_flares_24h"] == 0
+
+
+def test_openmeteo_offline_fixture():
+    openmeteo_weather.requests = None
+    try:
+        r = openmeteo_weather.collect()
+    finally:
+        import importlib
+        importlib.reload(openmeteo_weather)
+    assert r.offline
+    assert r.channel == "openmeteo_weather"
+    assert r.metrics["n_stations"] == 8
+    assert "max_abs_z" in r.metrics
+    assert all(s["name"] for s in r.metrics["stations"])
+    # flag must be consistent with the extreme-station count, whatever the
+    # recorded weather was doing (no calm-weather assumption baked in)
+    assert r.anomaly_flag == (r.metrics["n_extreme"] >= 2)
+
+
+def test_openmeteo_zscore_and_flag():
+    series = [1013.0 + (i % 5) * 0.2 for i in range(48)]
+    calm_z = openmeteo_weather._pressure_z(1013.4, series)
+    assert abs(calm_z) < 1.0
+    storm_z = openmeteo_weather._pressure_z(1045.0, series)
+    assert storm_z > 3.0
+
+    def st(name, p):
+        return {"name": name,
+                "current": {"pressure_msl": p, "temperature_2m": 20.0,
+                            "wind_speed_10m": 10.0},
+                "hourly": {"pressure_msl": series}}
+
+    out = openmeteo_weather._analyze([st("a", 1045.0), st("b", 1045.0),
+                                      st("c", 1013.4)])
+    assert out["anomaly_flag"] and out["metrics"]["n_extreme"] == 2
+    out = openmeteo_weather._analyze([st("a", 1013.4), st("b", 1013.4),
+                                      st("c", 1013.4)])
+    assert not out["anomaly_flag"]
+
+
+def test_radio_stream_offline_no_fabrication():
+    # streams=[] skips candidates; requests=None kills the directory
+    # fallback -> must report offline, never invent spectrum
+    radio_stream.requests = None
+    try:
+        r = radio_stream.collect(streams=[])
+    finally:
+        import importlib
+        importlib.reload(radio_stream)
+    assert r.offline
+    assert r.channel == "radio_stream"
+    assert not r.anomaly_flag
+    assert "no public stream captured" in r.notes
+
+
+def test_radio_stream_spike_detection():
+    sr = 44100
+    t = np.arange(3 * sr) / sr
+    x = 0.25 * np.sin(2 * np.pi * 420.0 * t) \
+        + 0.001 * np.random.default_rng(11).standard_normal(t.shape[0])
+    metrics = radio_stream._analyze(x, sr)
+    assert any(abs(s["freq_hz"] - 420.0) < 1e-6 for s in metrics["spikes"])
+    assert metrics["rms"] > 0
+    assert 0.0 <= metrics["spectral_flatness"] <= 1.0
+
+
+def test_bitcoin_offline_fixture():
+    bitcoin_substrate.requests = None
+    try:
+        r = bitcoin_substrate.collect()
+    finally:
+        import importlib
+        importlib.reload(bitcoin_substrate)
+    assert r.offline
+    assert r.channel == "bitcoin_substrate"
+    assert r.metrics["tip_height"] > 900_000
+    assert r.metrics["hashrate_3d_avg_ehs"] > 100.0
+    assert not r.anomaly_flag  # recorded fixture is fee-quiet
+
+
+def test_bitcoin_congestion_flag():
+    out = bitcoin_substrate._analyze(
+        969801,
+        {"fastestFee": 62, "halfHourFee": 40, "hourFee": 20},
+        {"count": 160000, "vsize": 9e7},
+        {"currentHashrate": 9.5e20, "hashrates": []})
+    assert out["anomaly_flag"]
+    assert "fee congestion" in out["notes"]
+    out = bitcoin_substrate._analyze(
+        969801,
+        {"fastestFee": 2, "halfHourFee": 1, "hourFee": 1},
+        {"count": 77002, "vsize": 4.1e7},
+        {"currentHashrate": 9.5e20, "hashrates": []})
+    assert not out["anomaly_flag"]
+
+
+def test_tiers_new_environmental_rules():
+    def rd(ch, metrics):
+        return ChannelReading(timestamp_utc="2024-01-01T00:00:00Z",
+                              channel=ch, metrics=metrics)
+
+    v = evaluate_tiers([rd("usgs_seismic", {"rate_zscore": 4.2})])
+    assert "t1_quake_rate" in v.tier1_hits
+    v = evaluate_tiers([rd("noaa_geomag", {"kp_latest": 7.33})])
+    assert "t1_geomag_storm_major" in v.tier1_hits
+    v = evaluate_tiers([rd("noaa_solar",
+                           {"x_flares_24h": 1, "m_flares_24h": 0})])
+    assert "t1_solar_x" in v.tier1_hits
+    v = evaluate_tiers([rd("radio_stream",
+                           {"spikes": [{"freq_hz": 280.0,
+                                        "excess_db": 9.1}]})])
+    assert "t1_null_spike" in v.tier1_hits
+
+    # quiet readings -> no tier-1 hits
+    v = evaluate_tiers([rd("usgs_seismic", {"rate_zscore": 0.5}),
+                        rd("noaa_geomag", {"kp_latest": 2.0}),
+                        rd("noaa_solar", {"x_flares_24h": 0,
+                                          "m_flares_24h": 1})])
+    assert not v.tier1_hits
+
+
+def test_decode_reply_checked_refuses_silence_and_noise():
+    """The gated decoder must refuse silence/noise, accept real signals."""
+    import numpy as np
+    from ars_core.beacon import (DEFAULT_SR, decode_reply_checked,
+                                 encode_reply)
+    silence = np.zeros(13 * DEFAULT_SR)
+    trits, snr = decode_reply_checked(silence)
+    assert trits is None and snr <= 0.0
+    rng = np.random.default_rng(7)
+    noise = 0.001 * rng.standard_normal(13 * DEFAULT_SR)
+    trits, snr = decode_reply_checked(noise)
+    assert trits is None and snr < 6.0
+    msg = [2, 0, 1, 2, 2, 0, 0, 1, 0, 1, 2, 0, 1]
+    trits, snr = decode_reply_checked(encode_reply(msg))
+    assert trits == msg and snr >= 20.0
+
+
+# --------------------------------------------------------------------------
+# plain-python runner (kept last so every test_ above is collected)
 # --------------------------------------------------------------------------
 
 def _run_all():
@@ -244,20 +429,3 @@ def _run_all():
 
 if __name__ == "__main__":
     sys.exit(_run_all())
-
-
-def test_decode_reply_checked_refuses_silence_and_noise():
-    """The gated decoder must refuse silence/noise, accept real signals."""
-    import numpy as np
-    from ars_core.beacon import (DEFAULT_SR, decode_reply_checked,
-                                 encode_reply)
-    silence = np.zeros(13 * DEFAULT_SR)
-    trits, snr = decode_reply_checked(silence)
-    assert trits is None and snr <= 0.0
-    rng = np.random.default_rng(7)
-    noise = 0.001 * rng.standard_normal(13 * DEFAULT_SR)
-    trits, snr = decode_reply_checked(noise)
-    assert trits is None and snr < 6.0
-    msg = [2, 0, 1, 2, 2, 0, 0, 1, 0, 1, 2, 0, 1]
-    trits, snr = decode_reply_checked(encode_reply(msg))
-    assert trits == msg and snr >= 20.0
